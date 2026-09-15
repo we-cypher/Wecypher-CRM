@@ -1,22 +1,26 @@
+x-app-environment: &app-environment
+  DEBUG: ${DEBUG}
+  SECRET_KEY: ${SECRET_KEY}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+  DATABASE_URL: ${DATABASE_URL}
+  DB_INIT_PASSWORD: ${DB_INIT_PASSWORD}
+  REDIS_URL: ${REDIS_URL}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+
 services:
   web:
     build: .
+    expose:
+      - "8000"
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
       - staticfiles:/app/staticfiles
       - media:/app/media
     environment:
-      - DEBUG=1
-      - SECRET_KEY=dev-secret-key-change-in-production
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-      - CSRF_TRUSTED_ORIGINS=http://localhost:8000
-      - DATABASE_URL=postgres://horilla_user:horilla_pass@db:5432/horilla_db
-      - DB_INIT_PASSWORD=dev-init-password-change-in-production
-      - REDIS_URL=redis://:horilla_pass@redis:6379/0
-      - CELERY_BROKER_URL=redis://:horilla_pass@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:horilla_pass@redis:6379/0
+      <<: *app-environment
     depends_on:
       db:
         condition: service_healthy
@@ -36,13 +40,9 @@ services:
     healthcheck:
       disable: true
     volumes:
-      - .:/app
       - media:/app/media
     environment:
-      - DATABASE_URL=postgres://horilla_user:horilla_pass@db:5432/horilla_db
-      - REDIS_URL=redis://:horilla_pass@redis:6379/0
-      - CELERY_BROKER_URL=redis://:horilla_pass@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:horilla_pass@redis:6379/0
+      <<: *app-environment
     depends_on:
       db:
         condition: service_healthy
@@ -55,13 +55,8 @@ services:
     command: celery -A horilla beat --loglevel=info
     healthcheck:
       disable: true
-    volumes:
-      - .:/app
     environment:
-      - DATABASE_URL=postgres://horilla_user:horilla_pass@db:5432/horilla_db
-      - REDIS_URL=redis://:horilla_pass@redis:6379/0
-      - CELERY_BROKER_URL=redis://:horilla_pass@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:horilla_pass@redis:6379/0
+      <<: *app-environment
     depends_on:
       db:
         condition: service_healthy
@@ -71,28 +66,29 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: horilla_db
-      POSTGRES_USER: horilla_user
-      POSTGRES_PASSWORD: horilla_pass
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U horilla_user -d horilla_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass horilla_pass
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "horilla_pass", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # Coolify already reverse-proxies TLS. Enable this profile only for local prod tests.
   nginx:
     image: nginx:alpine
     ports:
