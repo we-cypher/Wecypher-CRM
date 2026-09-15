@@ -35,8 +35,14 @@ services:
 
   celery-worker:
     build: .
-    entrypoint: []
-    command: celery -A horilla worker --loglevel=info --concurrency=2
+    entrypoint:
+      - celery
+    command:
+      - -A
+      - horilla
+      - worker
+      - --loglevel=info
+      - --concurrency=2
     healthcheck:
       disable: true
     volumes:
@@ -51,8 +57,13 @@ services:
 
   celery-beat:
     build: .
-    entrypoint: []
-    command: celery -A horilla beat --loglevel=info
+    entrypoint:
+      - celery
+    command:
+      - -A
+      - horilla
+      - beat
+      - --loglevel=info
     healthcheck:
       disable: true
     environment:
