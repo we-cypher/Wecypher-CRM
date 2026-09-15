@@ -17,6 +17,14 @@ while ! nc -z db 5432; do
 done
 echo "PostgreSQL is ready!"
 
+# Named volumes are often root-owned; appuser must be able to write media.
+mkdir -p /app/media /app/staticfiles
+if [ -w /app/media ] && [ -w /app/staticfiles ]; then
+  :
+else
+  echo "WARNING: /app/media or /app/staticfiles is not writable by $(id -un)"
+fi
+
 # Run migrations
 python manage.py migrate --noinput
 
